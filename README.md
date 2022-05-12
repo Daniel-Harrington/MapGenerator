@@ -41,6 +41,6 @@ Testing at scale :
 Checking the efficiency of my code thus far:
 
 ![image](https://user-images.githubusercontent.com/6415123/168146632-eba7a0d3-5fe9-4913-b7e0-7e3d7cbaf3ea.png)
-![image](https://user-images.githubusercontent.com/6415123/168146672-09975dde-1a82-4c01-8232-8f9b179b449b.png)
+![image](https://user-images.githubusercontent.com/6415123/168147152-7c552a09-c79a-4e9e-bf31-3735c10ed5f1.png)
 
 This seems to be an acceptable speed for the initial generation and the majority of the bottleneck is from libraries that are already as fast as possible, thankfully it seems like I havent made any major errors yet.
