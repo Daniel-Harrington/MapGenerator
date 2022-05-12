@@ -6,4 +6,10 @@ MapGen4 : https://www.redblobgames.com/maps/mapgen4/
 Here is an explanation for the starting point of the map generation / the basic data structure responsible for the polygonal regions:
 https://mapbox.github.io/delaunator/
 
+
+
+
+![mmexport1650679257413](https://user-images.githubusercontent.com/6415123/168144723-3bc0466c-2f56-4e9e-82c6-276859f281de.jpg)
+
+
 If possible I am going to try to to use a method described in this article www.geometry.caltech.edu/pubs/MMdGD11.pdf, specifically Hodge-Optimized Triangulations to create nicer dual meshes for working with.
