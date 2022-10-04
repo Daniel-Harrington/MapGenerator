@@ -5,7 +5,7 @@
 #include <vector>
 #include <array>
 #include <cstdlib>
-
+#include <utility>
 /*Stats*/
 #include <time.h>
 #include <chrono>
@@ -50,6 +50,45 @@ const char* fragmentShaderSource = "#version 330 core\n"
 "   FragColor = vec4(ourColor,1);\n"
 "}\n\0";
 
+
+std::vector<double> construct_voronoi_edges(const delaunator::Delaunator& delaunay) {
+
+	std::vector<double> line_edges;
+
+	for (size_t e = 0; e < delaunay.triangles.size()/3; e++ ) {
+		if (e < 2 * delaunay.triangles[delaunay.halfedges[e]]) {
+			const auto p = delaunator::circumcenter(delaunay.coords[2 * delaunay.triangles[e]], delaunay.coords[2 * delaunay.triangles[e]+1],
+				delaunay.coords[2 * delaunay.triangles[e+1]], delaunay.coords[2 * delaunay.triangles[e+1]+1], 2 * delaunay.coords[delaunay.triangles[e+2]], delaunay.coords[2 * delaunay.triangles[e+2]+1]);
+
+			const auto q = delaunator::circumcenter(delaunay.coords[2 * delaunay.triangles[delaunay.halfedges[e]]],delaunay.coords[2 * delaunay.triangles[delaunay.halfedges[e]] + 1],  delaunay.coords[2 * delaunay.triangles[delaunay.halfedges[e + 1] ]],  delaunay.coords[2 * delaunay.triangles[delaunay.halfedges[e + 1] ] + 1],  delaunay.coords[2 * delaunay.triangles[delaunay.halfedges[e + 2] ] ], delaunay.coords[2 * delaunay.triangles[delaunay.halfedges[e + 2] ] + 1]);
+			
+			line_edges.push_back((double)e);
+			line_edges.push_back(p.first);
+			line_edges.push_back(p.second);
+			line_edges.push_back(q.first);
+			line_edges.push_back(q.second);
+
+		}
+	}
+	unsigned int index = 0;
+	std::cout << "Beep Boop, Printing....." << '\n';
+	for (auto i : line_edges)
+	{
+
+		index++;
+		if ((index % 5) != 0) {
+			std::cout << i << ',';
+		}
+		else
+		{
+
+			std::cout << i << ',' << '\n';
+		};
+
+	}
+	return line_edges;
+}
+
 //auto construct_voronoi_polygons() {
 //
 //	function edgesAroundPoint(delaunay, start) {
@@ -63,26 +102,19 @@ const char* fragmentShaderSource = "#version 330 core\n"
 //		return result;
 //	}
 //}
-auto generate_points()
+std::vector<std::array<float, 2>> generate_points()
 {
 
 	// Input parameters.
-	constexpr float max_val = 0.9;
-	constexpr float kRadius = 0.008; //0.008 seems good
+	constexpr float max_val = 0.900f;
+	constexpr float kRadius = 0.088; //0.008 seems good
 	constexpr auto kXMin = std::array<float, 2>{ {-max_val, -max_val}};
 	constexpr auto kXMax = std::array<float, 2>{ {max_val, max_val}};
 	const std::uint32_t max_sample_attempts = 30;
-	const auto point_data = thinks::PoissonDiskSampling(kRadius, kXMin, kXMax,max_sample_attempts);
-	std::vector<double> points;
-	for (auto i : point_data)
-	{
-		for (float x : i)
-			points.push_back((double)x);
-	}
-		
+	std::vector<std::array<float, 2>> point_data = thinks::PoissonDiskSampling(kRadius, kXMin, kXMax,max_sample_attempts);
 	// Samples returned as std::vector<std::array<float, 2>>.
 	// Default seed and max sample attempts.
-	return points;
+	return point_data;
 }
 //vertices coordinates
 void Print_Verts(std::vector<float>& vertices) {
@@ -115,11 +147,16 @@ int main()
 	glfwInit();
 	
 	//Generate Poisson Points
-	const auto points = generate_points();
-	const delaunator::Delaunator del_triangles(points);
-
-
-	std::cout << del_triangles.coords.size() << '\n';
+	const std::vector<std::array<float, 2>> points = generate_points();
+	std::vector<double> coords;
+	for (auto point : points) {
+		for (auto i : point) {
+			coords.push_back((double)i);
+		}
+	}
+	delaunator::Delaunator del_triangles(coords);
+	//std::cout << del_triangles.triangles.size() << std::endl;
+	//std::cout << del_triangles.triangles.size()<< std::endl;
 	std::vector<float> vertices;
 	Init_Vertices(del_triangles, vertices);
 	std::cout << vertices.size() << '\n';
@@ -212,7 +249,7 @@ int main()
 	ImGui_ImplOpenGL3_Init("#version 330");
 	ImGui::SetNextWindowPos(ImVec2(0, 0));
 	// Variables to be changed in the ImGUI window
-	bool drawPoints = true;
+	static int generation_stage = 0;
 	bool wireframe = false;
 	float size = 1.0f;
 	float color[4] = { 0.8f, 0.3f, 0.02f, 1.0f };
@@ -244,30 +281,37 @@ int main()
 		{
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		}
-		if (drawPoints)
-		{
-			// Draw points
-
+		if (generation_stage == 1 || generation_stage == 2)
+		{	
+			// Draw Triangles
 			glDrawArrays(GL_TRIANGLES, 0, vertices.size() / 6);
 			if (test == 0)
 			{
 				auto end = std::chrono::system_clock::now();
 				std::chrono::duration<double> elapsed_seconds = end - start;
 				std::time_t end_time = std::chrono::system_clock::to_time_t(end);
-				std::cout <<"Drawing "<< vertices.size() / 18 << " triangles from " << vertices.size()/12 << " total vertices generated from "<< points.size()<< " points and rendered to view in " << elapsed_seconds.count() << '/n' << " at a rate of " << (vertices.size() /6) / elapsed_seconds.count() << " vertices rendered per second.";
+				std::cout <<"Drawing "<< vertices.size() / 18 << " triangles from " << vertices.size()/12 << " total vertices generated from "<< points.size()<< " points and rendered to view in " << elapsed_seconds.count() << '/n' << " at a rate of " << (vertices.size() /12) / elapsed_seconds.count() << " vertices rendered per second.";
 				test++;
 			}
 			test++;
-			glPointSize(1);
 		};
 
+		if (generation_stage == 0)
+		{
+			// Draw points
+			glDrawArrays(GL_POINTS, 0, vertices.size() / 2);
+			glPointSize(1);
+		};
 		// ImGUI window creation
 		ImGui::Begin("My name is window, ImGUI window");
 		// Text that appears in the window
 		//Button to regenerate points
 		ImGui::Checkbox("Wireframe", &wireframe);
 		// Checkbox that appears in the window
-		ImGui::Checkbox("Draw Points", &drawPoints);
+	
+		ImGui::RadioButton("Points", &generation_stage, 0); ImGui::SameLine();
+		ImGui::RadioButton("Triangles", &generation_stage, 1); ImGui::SameLine();
+		ImGui::RadioButton("Polygons", &generation_stage, 2);
 		// Slider that appears in the window
 		ImGui::SliderFloat("Size", &size, 0.0001f, 20.0f);
 		// Fancy color editor that appears in the window
