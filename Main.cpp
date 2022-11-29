@@ -17,6 +17,9 @@
 /*Delaunay trianglulation*/
 #include<delaunator-cpp/delaunator.hpp>
 
+/*My includes*/
+#include "map.h"
+
 
 /*Gui Includes for openGL3*/
 #include"imgui.h"
@@ -24,7 +27,7 @@
 #include"imgui_impl_opengl3.h"
 
 /*OpenGL Includes*/
-#include<glad/glad.h>
+#include<glad.h>
 #include<GLFW/glfw3.h>
 #include "Main.h"
 
@@ -51,43 +54,6 @@ const char* fragmentShaderSource = "#version 330 core\n"
 "}\n\0";
 
 
-std::vector<double> construct_voronoi_edges(const delaunator::Delaunator& delaunay) {
-
-	std::vector<double> line_edges;
-
-	for (size_t e = 0; e < delaunay.triangles.size()/3; e++ ) {
-		if (e < 2 * delaunay.triangles[delaunay.halfedges[e]]) {
-			const auto p = delaunator::circumcenter(delaunay.coords[2 * delaunay.triangles[e]], delaunay.coords[2 * delaunay.triangles[e]+1],
-				delaunay.coords[2 * delaunay.triangles[e+1]], delaunay.coords[2 * delaunay.triangles[e+1]+1], 2 * delaunay.coords[delaunay.triangles[e+2]], delaunay.coords[2 * delaunay.triangles[e+2]+1]);
-
-			const auto q = delaunator::circumcenter(delaunay.coords[2 * delaunay.triangles[delaunay.halfedges[e]]],delaunay.coords[2 * delaunay.triangles[delaunay.halfedges[e]] + 1],  delaunay.coords[2 * delaunay.triangles[delaunay.halfedges[e + 1] ]],  delaunay.coords[2 * delaunay.triangles[delaunay.halfedges[e + 1] ] + 1],  delaunay.coords[2 * delaunay.triangles[delaunay.halfedges[e + 2] ] ], delaunay.coords[2 * delaunay.triangles[delaunay.halfedges[e + 2] ] + 1]);
-			
-			line_edges.push_back((double)e);
-			line_edges.push_back(p.first);
-			line_edges.push_back(p.second);
-			line_edges.push_back(q.first);
-			line_edges.push_back(q.second);
-
-		}
-	}
-	unsigned int index = 0;
-	std::cout << "Beep Boop, Printing....." << '\n';
-	for (auto i : line_edges)
-	{
-
-		index++;
-		if ((index % 5) != 0) {
-			std::cout << i << ',';
-		}
-		else
-		{
-
-			std::cout << i << ',' << '\n';
-		};
-
-	}
-	return line_edges;
-}
 
 //auto construct_voronoi_polygons() {
 //
@@ -102,20 +68,7 @@ std::vector<double> construct_voronoi_edges(const delaunator::Delaunator& delaun
 //		return result;
 //	}
 //}
-std::vector<std::array<float, 2>> generate_points()
-{
 
-	// Input parameters.
-	constexpr float max_val = 0.900f;
-	constexpr float kRadius = 0.088; //0.008 seems good
-	constexpr auto kXMin = std::array<float, 2>{ {-max_val, -max_val}};
-	constexpr auto kXMax = std::array<float, 2>{ {max_val, max_val}};
-	const std::uint32_t max_sample_attempts = 30;
-	std::vector<std::array<float, 2>> point_data = thinks::PoissonDiskSampling(kRadius, kXMin, kXMax,max_sample_attempts);
-	// Samples returned as std::vector<std::array<float, 2>>.
-	// Default seed and max sample attempts.
-	return point_data;
-}
 //vertices coordinates
 void Print_Verts(std::vector<float>& vertices) {
 	
@@ -145,21 +98,14 @@ int main()
 	auto start = std::chrono::system_clock::now();
 	// Initialize GLFW
 	glfwInit();
-	
+	Map map;
+	Map newmap();
+
 	//Generate Poisson Points
-	const std::vector<std::array<float, 2>> points = generate_points();
-	std::vector<double> coords;
-	for (auto point : points) {
-		for (auto i : point) {
-			coords.push_back((double)i);
-		}
-	}
-	delaunator::Delaunator del_triangles(coords);
+	
 	//std::cout << del_triangles.triangles.size() << std::endl;
 	//std::cout << del_triangles.triangles.size()<< std::endl;
-	std::vector<float> vertices;
-	Init_Vertices(del_triangles, vertices);
-	std::cout << vertices.size() << '\n';
+	std::cout << map.vertices.data() << '\n';
 	// Tell GLFW what version of OpenGL we are using 
 	// In this case we are using OpenGL 3.3
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -227,7 +173,7 @@ int main()
 	glBindVertexArray(VAO);
 
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float)*vertices.size(), vertices.data(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float)*map.points.size(), map.points.data(), GL_STATIC_DRAW);
 
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6*sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
@@ -284,13 +230,13 @@ int main()
 		if (generation_stage == 1 || generation_stage == 2)
 		{	
 			// Draw Triangles
-			glDrawArrays(GL_TRIANGLES, 0, vertices.size() / 6);
+			glDrawArrays(GL_TRIANGLES, 0, map.vertices.size() / 6);
 			if (test == 0)
 			{
 				auto end = std::chrono::system_clock::now();
 				std::chrono::duration<double> elapsed_seconds = end - start;
 				std::time_t end_time = std::chrono::system_clock::to_time_t(end);
-				std::cout <<"Drawing "<< vertices.size() / 18 << " triangles from " << vertices.size()/12 << " total vertices generated from "<< points.size()<< " points and rendered to view in " << elapsed_seconds.count() << '/n' << " at a rate of " << (vertices.size() /12) / elapsed_seconds.count() << " vertices rendered per second.";
+				std::cout <<"Drawing "<< map.vertices.size() / 18 << " triangles from " << map.vertices.size()/12 << " total vertices generated from "<< map.points.size()<< " points and rendered to view in " << elapsed_seconds.count() << '/n' << " at a rate of " << (map.vertices.size() /12) / elapsed_seconds.count() << " vertices rendered per second.";
 				test++;
 			}
 			test++;
@@ -299,7 +245,7 @@ int main()
 		if (generation_stage == 0)
 		{
 			// Draw points
-			glDrawArrays(GL_POINTS, 0, vertices.size() / 2);
+			glDrawArrays(GL_POINTS, 0, map.vertices.size() / 2);
 			glPointSize(1);
 		};
 		// ImGUI window creation
